@@ -41,3 +41,31 @@ https://www.researchgate.net/figure/Propagation-of-Route-Request-RREQ-packet-Rou
 Kiedy router dostanie zapytanie o ścieżkę, może odpowiedzieć pakietem zawierającym informacje o trasie.
 
 Informacje zawarte w pakiecie obejmują źródło, adresy pośrednich routerów, HOP COUNT itp.
+
+## Nasz algorytm
+### Opis
+Zastosowanie protokołu reaktywnego wzorując się na AODV.
+
+### Algorytm
+Zakładamy dwa podstawowe scenariusze protokołu komunikacyjnego do przesłania wiadomości z punktu A do punktu B:
+
+a. `Source Node (nadawca)` nie posiada informacji o trasie prowadzącej do odbiorcy:
+- `broadcast` zmodyfikowanego pakietu `RREQ` do wszyskich sąsiadów source node'a,
+- pakiet `RREQ` będzie zawierał dodatkowe informacje o aktualnym czasie jaki upłynął od utworzenia i wysłania tego pakietu i aktualizowany do czasu dotarcia do odbiorcy `Destination Node`,
+- Odbiorca zgromadzi wiadomości i będzię oczekiwał przez jakiś czas na pakiety `RREQ` idące innymi ścieżkami, nadpisując tymi z najbardziej optymalnym czasem dotarcia pakietu od jego źródła,
+- znając już trasę potencjalnie najszybszą odsyła nią pakiet `RRES` do pierwotnego nadawcy.
+
+#### Przykładowe struktury pakietów
+- `RREQ`:
+    - adres odbiorcy,
+    - adres nadawcy,
+    - numer sekwencji,
+    - liczbę przeskoków,
+    - czas życia pakietu.
+- `RRES`:
+    - adres nadawcy,
+    - adres odbiorcy,
+    - numer sekwencji,
+    - liczbę przeskoków.
+
+b. Informacja o trasie jest znana:
