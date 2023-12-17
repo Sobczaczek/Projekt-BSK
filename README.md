@@ -68,4 +68,11 @@ a. `Source Node (nadawca)` nie posiada informacji o trasie prowadzącej do odbio
     - numer sekwencji,
     - liczbę przeskoków.
 
-b. Informacja o trasie jest znana:
+b. Informacja o trasie jest znana - pakiet zna drogę, którą ma zostać przekazany do odbiorcy.
+
+#### `Tablica routingu`:
+- adres odbiorcy, 
+- adres noda sąsiadującego, 
+- numer sekwencyjny,
+- liczba przeskoków. 
+
