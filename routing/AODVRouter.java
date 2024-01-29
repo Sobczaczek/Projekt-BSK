@@ -5,48 +5,31 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import core.Connection;
 import core.DTNHost;
 import core.Message;
 import core.Settings;
 
-/**
- * Epidemic message router with drop-oldest buffer and only single transferring
- * connections at a time.
- */
+
 public class AODVRouter extends ActiveRouter {
 	
-	private static final System.Logger LOGGER = System.getLogger(AODVRouter.class.getName());
-
 	private static final Map<Integer, AODVRouter.RoutingTable> routingTableUpdates = new HashMap<>();
+    
+	private RoutingTable routingTable;
 
-
-	
-    private AODVRREQTable rreqTable;
-    private RoutingTable routingTable;
-
-    /**
-     * Constructor. Creates a new message router based on the settings in the given
-     * Settings object.
-     * 
-     * @param s The settings object
-     */
     public AODVRouter(Settings s) {
         super(s);
         this.routingTable = new RoutingTable();
-        this.rreqTable = new AODVRREQTable();
-        // TODO: read & use epidemic router specific settings (if any)
     }
 
-    /**
-     * Copy constructor.
-     * 
-     * @param r The router prototype where setting values are copied from
-     */
     protected AODVRouter(AODVRouter r) {
         super(r);
-        this.routingTable = r.routingTable.clone(); // Assuming AODVRoutingTable has a clone method
-        this.rreqTable = new AODVRREQTable();
-        // TODO: copy epidemic settings here (if any)
+        this.routingTable = r.routingTable.clone();
+    }
+    
+    @Override
+    public AODVRouter replicate() {
+        return new AODVRouter(this);
     }
 
     @Override
@@ -62,96 +45,124 @@ public class AODVRouter extends ActiveRouter {
         }
 
         // Update the routing table based on incoming messages or any other criteria
-        updateRoutingTable();
+        // updateRoutingTable();
+        
 
         // then try any/all message to any/all connection
         this.tryAllMessagesToAllConnections();
     }
-
+    
+    /**
+     * Node A connect to Node B.
+     */
     @Override
-    public AODVRouter replicate() {
-        return new AODVRouter(this);
-    }
-    
-    // RREQ
-    public class AODVRREQTable {
-        private Map<String, AODVRREQPacket> rreqTable;
+    public void changedConnection(Connection con) {
+        super.changedConnection(con);
+        /*
+        if (con.isUp()) {
+            DTNHost peer = con.getOtherNode(getHost());
+            List<Message> newMessages = new ArrayList<Message>();
+            
+            for (Message m : peer.getMessageCollection()) {
+            	if (!this.hasMessage(m.getId())) {
+            		newMessages.add(m);
+            	}
+            }
+            
+            for (Message m : newMessages) {
+            	if (con.startTransfer(peer, m) == RCV_OK) {
+            		con.finalizeTransfer(); 
+            	}
+            }
+            
+            
+            
+            
+            
+            MessageRouter peerRouter = peer.getRouter();
 
-        public AODVRREQTable() {
-            this.rreqTable = new HashMap<>();
-        }
+            // Simulate the exchange of RouteRequest packets
+            AODVRREPPacket rrepPacket = processRouteRequest(peer);
 
-        public void addOrUpdateEntry(AODVRREQPacket rreqPacket) {
-            rreqTable.put(rreqPacket.getUniqueIdentifier(), rreqPacket);
-        }
+            // Simulate the reception of RouteReply packet
+            if (rrepPacket != null) {
+                // Assuming you have a connection to the peer
+                Connection peerConnection = getConToHost(peer);
 
-        @Override
-        public String toString() {
-            return rreqTable.toString();
-        }
-    }
-
-    public class AODVRREQPacket extends Message {
-        private static final String RREQ_PREFIX = "RREQ_";
-
-        private String uniqueIdentifier;
-        private int sequenceNumber;
-        private int hopCount;
-
-        public AODVRREQPacket(DTNHost source, DTNHost destination, String uniqueIdentifier, int hopCount) {
-            super(source, destination, RREQ_PREFIX + uniqueIdentifier, 0);
-            this.uniqueIdentifier = uniqueIdentifier;
-            this.sequenceNumber = Integer.parseInt(uniqueIdentifier.split("_")[2]);
-            this.hopCount = hopCount;
-        }
-
-
-        public String getUniqueIdentifier() {
-            return uniqueIdentifier;
-        }
-
-        public int getSequenceNumber() {
-            return sequenceNumber;
-        }
-
-        public int getHopCount() {
-            return hopCount;
-        }
-
-        @Override
-        public AODVRREQPacket clone() {
-            return new AODVRREQPacket(this.getFrom(), this.getTo(), this.uniqueIdentifier, this.hopCount);
+            }
+        }*/
+        if (con.isUp()) {
+            DTNHost peer = con.getOtherNode(getHost());
+            RREQPacket rreqPacket = new RREQPacket(this.getHost(), peer, "someId", 10, "dupa") {};
+            if (peer != null) {
+                // Assuming you have an instance of RREQPacket named rreqPacket
+                broadcastRREQPacket(rreqPacket);
+            }
         }
     }
     
-    // ROUTING TABLE
+    private AODVRREPPacket processRouteRequest(DTNHost destination) {
+        int destinationAddr = destination.getAddress();
+        AODVRREPPacket rrep = new AODVRREPPacket(getHost().getAddress(), destinationAddr, 0, 0, 120);
+
+        return rrep;
+    }
+    
+
+ // Add this method to your AODVRouter class
+    private Connection getConToHost(DTNHost destination) {
+        // Assuming you have a list of connections, iterate through them to find the one to the destination
+        for (Connection con : getConnections()) {
+            if (con.getOtherNode(getHost()) == destination) {
+                return con;
+            }
+        }
+        return null; // Connection not found
+    }
+
+
+
+        
+    /**
+     * Routing Table class.
+     */
     public class RoutingTable {
-        // Custom class to represent a routing table entry
+    	
+    	/**
+    	 * Routing table entry.
+    	 */
         public static class RoutingEntry {
-            private String destinationAddress;
-            private String neighboringNodeAddress;
-            private int sequenceNumber;
+        	
+            private int destinationAddr;
+            private int nextHopAddr;
+            private int sequenceNr;
             private int hopCount;
-
-            public RoutingEntry(String destinationAddress, String neighboringNodeAddress, int sequenceNumber, int hopCount) {
-                this.destinationAddress = destinationAddress;
-                this.neighboringNodeAddress = neighboringNodeAddress;
-                this.sequenceNumber = sequenceNumber;
+            
+            /**
+             * Constructor. Routing Entry.
+             * @param destinationAddr
+             * @param nextHopAddr
+             * @param sequenceNr
+             * @param hopCount
+             */
+            public RoutingEntry(int destinationAddr, int nextHopAddr, int sequenceNr, int hopCount) 
+            {
+                this.destinationAddr = destinationAddr;
+                this.nextHopAddr = nextHopAddr;
+                this.sequenceNr = sequenceNr;
                 this.hopCount = hopCount;
             }
 
-            // Getter methods for the fields (add more if needed)
-
-            public String getDestinationAddress() {
-                return destinationAddress;
+            public int getDestinationAddr() {
+                return destinationAddr;
             }
 
-            public String getNeighboringNodeAddress() {
-                return neighboringNodeAddress;
+            public int getNextHopAddr() {
+                return nextHopAddr;
             }
 
-            public int getSequenceNumber() {
-                return sequenceNumber;
+            public int getSequenceNr() {
+                return sequenceNr;
             }
 
             public int getHopCount() {
@@ -161,13 +172,16 @@ public class AODVRouter extends ActiveRouter {
             @Override
             public String toString() {
                 return String.format(
-                        "Destination: %s, Neighboring Node: %s, Sequence Number: %d, Hop Count: %d",
-                        destinationAddress, neighboringNodeAddress, sequenceNumber, hopCount);
+                        "Destination: %d, Next Node: %d, Sequence Number: %d, Hop Count: %d",
+                        destinationAddr, nextHopAddr, sequenceNr, hopCount);
             }
         }
 
         private Map<String, RoutingEntry> routingTable;
 
+        /**
+         * Constructor.
+         */
         public RoutingTable() {
             this.routingTable = new HashMap<>();
         }
@@ -177,7 +191,8 @@ public class AODVRouter extends ActiveRouter {
         }
 
         public RoutingTable clone() {
-            RoutingTable clonedTable = new RoutingTable();
+            
+        	RoutingTable clonedTable = new RoutingTable();
             for (Map.Entry<String, RoutingEntry> entry : this.routingTable.entrySet()) {
                 clonedTable.addOrUpdateEntry(entry.getKey(), entry.getValue());
             }
@@ -193,39 +208,13 @@ public class AODVRouter extends ActiveRouter {
             return builder.toString();
         }
     }
-    /*
-    private void updateRoutingTable() {
-        // Iterate through incoming messages and update the routing table
-        for (Message msg : getMessageCollection()) {
-            if (msg) {
-                AODVRREQPacket rreqPacket = (AODVRREQPacket) msg;
 
-                // Extract relevant information from the RREQPacket
-                String destinationAddress = rreqPacket.getTo().toString();
-                String neighboringNodeAddress = rreqPacket.getFrom().toString();
-                int sequenceNumber = rreqPacket.getSequenceNumber();
-                int hopCount = rreqPacket.getHopCount();
-
-                // Update or add the entry in the routing table
-                RoutingTable.RoutingEntry routingEntry = new RoutingTable.RoutingEntry(destinationAddress, neighboringNodeAddress, sequenceNumber, hopCount);
-                routingTable.addOrUpdateEntry(destinationAddress, routingEntry);
-
-                // Add or update entry in the RREQ table
-                rreqTable.addOrUpdateEntry(rreqPacket);
-
-                // Log the update if needed
-                System.out.println("Routing table updated: " + routingEntry);
-                LOGGER.log(System.Logger.Level.INFO, "Routing table updated: " + routingEntry);
-    
-            }
-        }
-    }*/
     private void updateRoutingTable() {
         // Iterate through incoming messages and update the routing table
         for (Message msg : getMessageCollection()) {
             // Check if the message is relevant for updating the routing table
-            String destinationAddress = msg.getTo().toString();
-            String neighboringNodeAddress = msg.getFrom().toString();
+            // String destinationAddress = msg.getTo().toString();
+            // String neighboringNodeAddress = msg.getFrom().toString();
             
             int routerAddres = this.getHost().getAddress();
             saveRoutingTableUpdateToList(routerAddres);
@@ -236,11 +225,11 @@ public class AODVRouter extends ActiveRouter {
             int hopCount = getHopCount(msg);
 
             // Update or add the entry in the routing table
-            RoutingTable.RoutingEntry routingEntry = new RoutingTable.RoutingEntry(destinationAddress, neighboringNodeAddress, sequenceNumber, hopCount);
-            routingTable.addOrUpdateEntry(destinationAddress, routingEntry);
+            // RoutingTable.RoutingEntry routingEntry = new RoutingTable.RoutingEntry(destinationAddress, neighboringNodeAddress, sequenceNumber, hopCount);
+            // routingTable.addOrUpdateEntry(destinationAddress, routingEntry);
 
             // Log the update if needed
-            System.out.println("Routing table updated: " + routingEntry);
+            // System.out.println("Routing table updated: " + routingEntry);
         }
     }
 
@@ -268,6 +257,35 @@ public class AODVRouter extends ActiveRouter {
 
     public static Map<Integer, AODVRouter.RoutingTable> getRoutingTableUpdates() {
         return routingTableUpdates;
+    }
+    
+    
+    
+    
+    
+    /*
+    AODVRREPPacket processRouteRequest(DTNHost destination) {
+    	int destinationAddr = destination.getAddress();
+    	AODVRREPPacket rrep = new AODVRREPPacket(getHost().getAddress(), destinationAddr, 0, 0, 120);
+    	
+    	return rrep;
+    }*/
+    private AODVRREPPacket processRouteRequestAndGetReply(int destinationAddr) {
+        // Process the RouteRequest and generate a RouteReply packet
+        // You need to implement the logic for processing the RouteRequest and generating the reply
+        // For simplicity, I'll create a dummy AODVRREPPacket
+        return new AODVRREPPacket(getHost().getAddress(), destinationAddr, 0, 0, 120);
+    }
+    
+    public void broadcastRREQPacket(RREQPacket rreqPacket) {
+        for (Connection connection : getConnections()) {
+            DTNHost peer = connection.getOtherNode(getHost());
+            if (peer != null) {
+                // Send the RREQPacket to the connected router
+                connection.startTransfer(peer, rreqPacket);
+                connection.finalizeTransfer();
+            }
+        }
     }
     
 }

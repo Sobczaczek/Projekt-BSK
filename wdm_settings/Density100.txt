@@ -13,7 +13,7 @@ Scenario.nrofHostGroups = 3
 ###################################
 ### common settings for all groups
 Group.movementModel = MapBasedMovement
-Group.router = EpidemicRouter
+Group.router = CustomRouter
 Group.bufferSize = 100M
 Group.transmitRange = 10
 # transmit speed of 2 Mbps = 250kBps

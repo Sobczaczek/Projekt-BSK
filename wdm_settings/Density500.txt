@@ -13,7 +13,7 @@ Scenario.nrofHostGroups = 3
 ###################################
 ### common settings for all groups
 Group.movementModel = MapBasedMovement
-Group.router = EpidemicRouter
+Group.router = CustomRouter
 Group.bufferSize = 100M
 Group.transmitRange = 10
 # transmit speed of 2 Mbps = 250kBps
@@ -54,7 +54,7 @@ Group1.busControlSystemNr = 8
 
 Group2.groupID = P
 Group2.waitTime = 0, 0 
-Group2.nrofHosts = 500
+Group2.nrofHosts = 150
 Group2.movementModel = WorkingDayMovement
 Group2.busControlSystemNr = 8
 Group2.speed = 0.8, 1.4
